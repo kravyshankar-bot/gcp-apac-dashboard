@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Time Tracker</title>
+<style>
+  :root {
+    --blue: #1a73e8;
+    --blue-light: #e8f0fe;
+    --green: #1e8e3e;
+    --green-light: #e6f4ea;
+    --red: #d93025;
+    --red-light: #fce8e6;
+    --grey: #5f6368;
+    --grey-light: #f8f9fa;
+    --border: #dadce0;
+    --text: #202124;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); color: var(--text); background: var(--grey-light); min-height: 100vh; }
+
+  header {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  header h1 { font-size: 18px; font-weight: 600; color: var(--blue); }
+  header span { font-size: 13px; color: var(--grey); }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+  /* ── Card ── */
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+
+  /* ── Form ── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .form-grid .wide { grid-column: 1 / -1; }
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--grey); margin-bottom: 4px; }
+  input, select, textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: var(--font);
+    color: var(--text);
+    background: #fff;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(26,115,232,.15);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .form-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .btn {
+    padding: 8px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background .15s, opacity .15s;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #1558b0; }
+  .btn-secondary { background: #fff; color: var(--grey); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--grey-light); }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { background: #167535; }
+  .btn-danger-sm {
+    background: none; border: none; color: var(--red); cursor: pointer;
+    font-size: 13px; padding: 2px 6px; border-radius: 3px;
+  }
+  .btn-danger-sm:hover { background: var(--red-light); }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .toolbar input[type="search"] { max-width: 220px; }
+  .toolbar select { max-width: 160px; }
+  .toolbar .spacer { flex: 1; }
+  .count { font-size: 13px; color: var(--grey); white-space: nowrap; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--grey);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--border);
+    background: var(--grey-light);
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+  th:hover { background: #eceff1; }
+  th .sort-icon { margin-left: 4px; opacity: .4; }
+  th.sorted .sort-icon { opacity: 1; color: var(--blue); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--blue-light); }
+  .hours-cell { font-weight: 600; color: var(--blue); text-align: right; }
+  .empty { text-align: center; padding: 40px; color: var(--grey); font-size: 14px; }
+
+  /* ── Summary bar ── */
+  .summary {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 12px 0 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+  }
+  .summary-item { font-size: 13px; }
+  .summary-item strong { color: var(--blue); }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.success { background: var(--green); }
+  #toast.error { background: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>&#9201; Project Time Tracker</h1>
+  <span id="header-date"></span>
+</header>
+
+<main>
+  <!-- ── Entry Form ── -->
+  <div class="card">
+    <h2>Log Time</h2>
+    <form id="entry-form">
+      <div class="form-grid">
+        <div>
+          <label for="f-date">Date *</label>
+          <input type="date" id="f-date" required>
+        </div>
+        <div>
+          <label for="f-client">Client *</label>
+          <input type="text" id="f-client" list="client-list" placeholder="e.g. Acme Corp" required>
+          <datalist id="client-list"></datalist>
+        </div>
+        <div>
+          <label for="f-project">Project *</label>
+          <input type="text" id="f-project" list="project-list" placeholder="e.g. Website Redesign" required>
+          <datalist id="project-list"></datalist>
+        </div>
+        <div>
+          <label for="f-job">Job Number *</label>
+          <input type="text" id="f-job" placeholder="e.g. PRJ-2024-001" required>
+        </div>
+        <div>
+          <label for="f-hours">Hours *</label>
+          <input type="number" id="f-hours" min="0.25" max="24" step="0.25" placeholder="e.g. 2.5" required>
+        </div>
+        <div class="wide">
+          <label for="f-task">Task Description *</label>
+          <textarea id="f-task" placeholder="Describe the work done…" required></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="submit-btn">Add Entry</button>
+        <button type="button" class="btn btn-secondary" id="clear-btn">Clear</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Entries Table ── -->
+  <div class="card">
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search…" aria-label="Search entries">
+      <select id="filter-client" aria-label="Filter by client">
+        <option value="">All clients</option>
+      </select>
+      <select id="filter-project" aria-label="Filter by project">
+        <option value="">All projects</option>
+      </select>
+      <input type="date" id="filter-from" title="From date" aria-label="From date">
+      <input type="date" id="filter-to" title="To date" aria-label="To date">
+      <button class="btn btn-secondary" id="clear-filters-btn">Clear filters</button>
+      <div class="spacer"></div>
+      <span class="count" id="entry-count"></span>
+      <a href="/api/export" class="btn btn-success" id="export-btn">&#8595; Download CSV</a>
+    </div>
+
+    <div class="table-wrap">
+      <table id="entries-table">
+        <thead>
+          <tr>
+            <th data-col="date">Date <span class="sort-icon">&#8597;</span></th>
+            <th data-col="client">Client <span class="sort-icon">&#8597;</span></th>
+            <th data-col="project">Project <span class="sort-icon">&#8597;</span></th>
+            <th data-col="jobNumber">Job # <span class="sort-icon">&#8597;</span></th>
+            <th data-col="task">Task</th>
+            <th data-col="hours" style="text-align:right">Hours <span class="sort-icon">&#8597;</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="entries-body">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="summary" id="summary"></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const API = '';
+
+// ── State ────────────────────────────────────────────────────────────────────
+let allEntries = [];
+let sortCol = 'date';
+let sortDir = -1; // -1 = desc, 1 = asc
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `show ${type}`;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function unique(arr, key) {
+  return [...new Set(arr.map(e => e[key]).filter(Boolean))].sort();
+}
+
+// ── API calls ────────────────────────────────────────────────────────────────
+async function fetchEntries() {
+  const res = await fetch(`${API}/api/entries`);
+  if (!res.ok) throw new Error('Failed to load entries');
+  return res.json();
+}
+
+async function addEntry(data) {
+  const res = await fetch(`${API}/api/entries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to save entry');
+  }
+  return res.json();
+}
+
+async function deleteEntry(id) {
+  const res = await fetch(`${API}/api/entries/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete entry');
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function getFiltered() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const client = document.getElementById('filter-client').value;
+  const project = document.getElementById('filter-project').value;
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+
+  return allEntries.filter(e => {
+    if (client && e.client !== client) return false;
+    if (project && e.project !== project) return false;
+    if (from && e.date < from) return false;
+    if (to && e.date > to) return false;
+    if (search) {
+      const haystack = [e.date, e.client, e.project, e.jobNumber, e.task].join(' ').toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function getSorted(entries) {
+  return [...entries].sort((a, b) => {
+    const av = sortCol === 'hours' ? parseFloat(a[sortCol] || 0) : (a[sortCol] || '');
+    const bv = sortCol === 'hours' ? parseFloat(b[sortCol] || 0) : (b[sortCol] || '');
+    if (av < bv) return sortDir;
+    if (av > bv) return -sortDir;
+    return 0;
+  });
+}
+
+function renderTable() {
+  const filtered = getSorted(getFiltered());
+  const tbody = document.getElementById('entries-body');
+  document.getElementById('entry-count').textContent =
+    `${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}`;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No entries found.</td></tr>';
+    document.getElementById('summary').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(e => `
+    <tr>
+      <td>${fmtDate(e.date)}</td>
+      <td>${esc(e.client)}</td>
+      <td>${esc(e.project)}</td>
+      <td>${esc(e.jobNumber)}</td>
+      <td>${esc(e.task)}</td>
+      <td class="hours-cell">${parseFloat(e.hours).toFixed(2)}</td>
+      <td><button class="btn-danger-sm" data-id="${e.id}" title="Delete entry">&#x2715;</button></td>
+    </tr>
+  `).join('');
+
+  // Summary
+  const totalHours = filtered.reduce((s, e) => s + parseFloat(e.hours || 0), 0);
+  const clientCount = new Set(filtered.map(e => e.client)).size;
+  const projectCount = new Set(filtered.map(e => e.project)).size;
+  document.getElementById('summary').innerHTML = `
+    <span class="summary-item">Total hours: <strong>${totalHours.toFixed(2)}</strong></span>
+    <span class="summary-item">Entries: <strong>${filtered.length}</strong></span>
+    <span class="summary-item">Clients: <strong>${clientCount}</strong></span>
+    <span class="summary-item">Projects: <strong>${projectCount}</strong></span>
+  `;
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function refreshDropdowns() {
+  const clients = unique(allEntries, 'client');
+  const projects = unique(allEntries, 'project');
+
+  // Filter dropdowns
+  const fc = document.getElementById('filter-client');
+  const fp = document.getElementById('filter-project');
+  const curClient = fc.value, curProject = fp.value;
+  fc.innerHTML = '<option value="">All clients</option>' + clients.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  fp.innerHTML = '<option value="">All projects</option>' + projects.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  fc.value = curClient;
+  fp.value = curProject;
+
+  // Autocomplete datalists
+  document.getElementById('client-list').innerHTML = clients.map(c => `<option value="${esc(c)}">`).join('');
+  document.getElementById('project-list').innerHTML = projects.map(p => `<option value="${esc(p)}">`).join('');
+}
+
+async function loadAndRender() {
+  try {
+    allEntries = await fetchEntries();
+    refreshDropdowns();
+    renderTable();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ── Sort headers ─────────────────────────────────────────────────────────────
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) { sortDir *= -1; }
+    else { sortCol = col; sortDir = col === 'date' ? -1 : 1; }
+    document.querySelectorAll('th').forEach(t => t.classList.remove('sorted'));
+    th.classList.add('sorted');
+    th.querySelector('.sort-icon').textContent = sortDir === 1 ? '▲' : '▼';
+    renderTable();
+  });
+});
+
+// ── Form submit ───────────────────────────────────────────────────────────────
+document.getElementById('entry-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const entry = await addEntry({
+      date:      document.getElementById('f-date').value,
+      client:    document.getElementById('f-client').value.trim(),
+      project:   document.getElementById('f-project').value.trim(),
+      jobNumber: document.getElementById('f-job').value.trim(),
+      task:      document.getElementById('f-task').value.trim(),
+      hours:     document.getElementById('f-hours').value,
+    });
+    allEntries.push(entry);
+    refreshDropdowns();
+    renderTable();
+    toast('Entry saved ✓');
+    e.target.reset();
+    document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add Entry';
+  }
+});
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  document.getElementById('entry-form').reset();
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+});
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+document.getElementById('entries-body').addEventListener('click', async e => {
+  const btn = e.target.closest('.btn-danger-sm');
+  if (!btn) return;
+  if (!confirm('Delete this entry?')) return;
+  const id = btn.dataset.id;
+  try {
+    await deleteEntry(id);
+    allEntries = allEntries.filter(en => en.id !== id);
+    refreshDropdowns();
+    renderTable();
+    toast('Entry deleted');
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+});
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+['search','filter-client','filter-project','filter-from','filter-to'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderTable);
+});
+document.getElementById('clear-filters-btn').addEventListener('click', () => {
+  ['search','filter-client','filter-project','filter-from','filter-to'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  renderTable();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-AU', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+// Mark default sorted column
+document.querySelector('th[data-col="date"]').classList.add('sorted');
+document.querySelector('th[data-col="date"] .sort-icon').textContent = '▼';
+
+loadAndRender();
+</script>
+</body>
+</html>
