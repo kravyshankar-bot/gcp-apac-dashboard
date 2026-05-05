@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: younion-time-tracker
+    runtime: python
+    buildCommand: echo "No build step required"
+    startCommand: python3 timesheet/server.py
+    envVars:
+      - key: PORT
+        value: 10000
