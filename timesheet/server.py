@@ -34,10 +34,17 @@ def save_entries(entries):
         json.dump(entries, f, indent=2)
 
 
+def calc_hours(start: str, end: str) -> float:
+    """Return decimal hours between two HH:MM strings."""
+    sh, sm = map(int, start.split(":"))
+    eh, em = map(int, end.split(":"))
+    return round(((eh * 60 + em) - (sh * 60 + sm)) / 60, 4)
+
+
 def entries_to_csv(entries):
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ID", "Date", "Client", "Project", "Job Number", "Task", "Hours"])
+    writer.writerow(["ID", "Date", "Client", "Project", "Job Number", "Task", "Start Time", "End Time", "Hours"])
     for e in entries:
         writer.writerow([
             e.get("id", ""),
@@ -46,6 +53,8 @@ def entries_to_csv(entries):
             e.get("project", ""),
             e.get("jobNumber", ""),
             e.get("task", ""),
+            e.get("startTime", ""),
+            e.get("endTime", ""),
             e.get("hours", ""),
         ])
     return output.getvalue()
@@ -116,12 +125,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "invalid JSON"})
                 return
 
-            required = ["date", "client", "project", "jobNumber", "task", "hours"]
+            required = ["date", "client", "project", "jobNumber", "task", "startTime", "endTime"]
             missing = [f for f in required if not entry.get(f)]
             if missing:
                 self.send_json(400, {"error": f"missing fields: {', '.join(missing)}"})
                 return
 
+            start, end = entry["startTime"], entry["endTime"]
+            if end <= start:
+                self.send_json(400, {"error": "endTime must be after startTime"})
+                return
+            entry["hours"] = calc_hours(start, end)
             entry["id"] = str(uuid.uuid4())
             entry["createdAt"] = datetime.utcnow().isoformat() + "Z"
             entries = load_entries()
