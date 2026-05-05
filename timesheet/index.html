@@ -202,8 +202,17 @@
           <input type="text" id="f-job" placeholder="e.g. PRJ-2024-001" required>
         </div>
         <div>
-          <label for="f-hours">Hours *</label>
-          <input type="number" id="f-hours" min="0.25" max="24" step="0.25" placeholder="e.g. 2.5" required>
+          <label for="f-start">Start Time *</label>
+          <input type="time" id="f-start" required>
+        </div>
+        <div>
+          <label for="f-end">End Time *</label>
+          <input type="time" id="f-end" required>
+        </div>
+        <div>
+          <label for="f-hours">Duration (auto)</label>
+          <input type="text" id="f-hours" readonly placeholder="—" tabindex="-1"
+            style="background:#f8f9fa;color:#1a73e8;font-weight:600;cursor:default;">
         </div>
         <div class="wide">
           <label for="f-task">Task Description *</label>
@@ -244,12 +253,14 @@
             <th data-col="project">Project <span class="sort-icon">&#8597;</span></th>
             <th data-col="jobNumber">Job # <span class="sort-icon">&#8597;</span></th>
             <th data-col="task">Task</th>
-            <th data-col="hours" style="text-align:right">Hours <span class="sort-icon">&#8597;</span></th>
+            <th data-col="startTime" style="text-align:right">Start <span class="sort-icon">&#8597;</span></th>
+            <th data-col="endTime" style="text-align:right">End <span class="sort-icon">&#8597;</span></th>
+            <th data-col="hours" style="text-align:right">Duration <span class="sort-icon">&#8597;</span></th>
             <th></th>
           </tr>
         </thead>
         <tbody id="entries-body">
-          <tr><td colspan="7" class="empty">Loading…</td></tr>
+          <tr><td colspan="9" class="empty">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -350,7 +361,7 @@ function renderTable() {
     `${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}`;
 
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No entries found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No entries found.</td></tr>';
     document.getElementById('summary').innerHTML = '';
     return;
   }
@@ -362,7 +373,9 @@ function renderTable() {
       <td>${esc(e.project)}</td>
       <td>${esc(e.jobNumber)}</td>
       <td>${esc(e.task)}</td>
-      <td class="hours-cell">${parseFloat(e.hours).toFixed(2)}</td>
+      <td style="text-align:right">${esc(e.startTime || '')}</td>
+      <td style="text-align:right">${esc(e.endTime || '')}</td>
+      <td class="hours-cell">${parseFloat(e.hours || 0).toFixed(2)}h</td>
       <td><button class="btn-danger-sm" data-id="${e.id}" title="Delete entry">&#x2715;</button></td>
     </tr>
   `).join('');
@@ -431,13 +444,17 @@ document.getElementById('entry-form').addEventListener('submit', async e => {
   btn.disabled = true;
   btn.textContent = 'Saving…';
   try {
+    const start = document.getElementById('f-start').value;
+    const end   = document.getElementById('f-end').value;
+    if (end <= start) { throw new Error('End time must be after start time'); }
     const entry = await addEntry({
       date:      document.getElementById('f-date').value,
       client:    document.getElementById('f-client').value.trim(),
       project:   document.getElementById('f-project').value.trim(),
       jobNumber: document.getElementById('f-job').value.trim(),
       task:      document.getElementById('f-task').value.trim(),
-      hours:     document.getElementById('f-hours').value,
+      startTime: start,
+      endTime:   end,
     });
     allEntries.push(entry);
     refreshDropdowns();
@@ -485,6 +502,20 @@ document.getElementById('clear-filters-btn').addEventListener('click', () => {
   });
   renderTable();
 });
+
+// ── Duration auto-calc ───────────────────────────────────────────────────────
+function calcDuration() {
+  const start = document.getElementById('f-start').value;
+  const end   = document.getElementById('f-end').value;
+  const el    = document.getElementById('f-hours');
+  if (!start || !end || end <= start) { el.value = ''; return; }
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const mins = (eh * 60 + em) - (sh * 60 + sm);
+  el.value = mins > 0 ? `${(mins / 60).toFixed(2)}h` : '';
+}
+document.getElementById('f-start').addEventListener('input', calcDuration);
+document.getElementById('f-end').addEventListener('input', calcDuration);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
